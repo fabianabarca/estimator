@@ -10,6 +10,7 @@ An utility tool to estimate the arrival and departure times of the `stop_times` 
 - `trip_departure_time`:
 - `trip_arrival_time`:
 - `route_stops` (table):
+- `anchor_times` (table):
 - `stops` (table):
 - `shapes` (table):
 
@@ -67,3 +68,7 @@ stops = t2s.get_stops_from_db(asdfasdj)
 
 - `get_stops()`: reading and validation of stops data.
 - `geojson_to_shapes`: converting a GeoJSON file to a valid GTFS `shapes.txt` file.
+
+### Notes to self
+
+- Generalize `trip_departure_time` and `trip_arrival_time` with `trip_anchor_time` where the departure time ("first stop") and arrival time ("last stop") are set as such by default, but allowing other "inner" stops to be set as well, thus allowing the special cases like San Gabriel where we have "los Mangos" as fixed time and then San Gabriel as well.
