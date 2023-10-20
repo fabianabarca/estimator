@@ -72,3 +72,57 @@ stops = t2s.get_stops_from_db(asdfasdj)
 ### Notes to self
 
 - Generalize `trip_departure_time` and `trip_arrival_time` with `trip_anchor_time` where the departure time ("first stop") and arrival time ("last stop") are set as such by default, but allowing other "inner" stops to be set as well, thus allowing the special cases like San Gabriel where we have "los Mangos" as fixed time and then San Gabriel as well.
+
+### Estimator
+
+```python
+estimator(
+    route=route_id,
+    shape=shape_id,
+    route_stops=tabla_paradas_rutas, # posiblemente hay que buscarlo directo en la DB	
+    stops=tabla_paradas, # posiblemente hay que buscarlo directo en la DB
+    method={A, B},
+    initial_stop=stop_id, 
+    time_initial_stop=time_object, 
+    last_stop=stop_id,
+    time_last_stop=time_object,
+)
+```
+
+returns: 
+- stop_id
+- stop_sequence
+- arrival_time `TimeDeltaObject` from time_initial_stop
+- departure_time `TimeDeltaObject` from time_initial_stop
+
+trip_departure_time: 6:10
+
+P2 (timedelta) 120 (6:12)
+P3 180 (6:13)
+P4
+P5
+
+¿Qué hay dentro de la tabla de mediciones? (Más o menos lo de la tabla pivot)
+
+stop_time_measurements
+
+route_id shape_id trip_id date stop_id arrival_time departure_time
+
+Recomendaciones:
+
+- Construir una tabla stop_time_measurements de mentiras
+- Calcular la función polinomial de mejor ajuste para una combinación (route_id shape_id trip_id date stop_id) como función de la hora de salida de la parada inicial
+- Utilizar la función para hacer estimaciones de una nueva hora de salida.
+
+Una función para estimar la función polinomial y otra aparte es "estimator" para una nueva hora del día.
+
+Ejemplo: si f(t) = 3t^7 + 2.375t^6 - ... + 35 (unidad: segundos) para arrival_time de la parada stop_id (Educación), entonces el TimeDelta para una nueva hora del día es:
+
+f(12:35) = 3(12:35)^7 + 2.375(12:35)^6 - ... + 35 = 264 segundos
+
+
+
+Crear función f(t) para cada stop_id, para arrival_time y (por separado) para departure_time que describe el deltaT entre la parada anterior y la parada actual
+
+Recordar que Python tiene formas de encontrar una curva polinomial de mejor ajuste.
+
