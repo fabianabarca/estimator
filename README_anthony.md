@@ -188,50 +188,52 @@ def estimator(route_id, service_id, shape_id, start_time, polynomials, stops_mea
 
 Utilizando `estimator` es posible generar la tabla `stop_times` GTFS:
 ```python
-trip_times= pd.read_csv('trip_times.csv')
-trips= pd.read_csv('trips.csv')
+def generate_stop_times_df():
 
-# Crear un DataFrame vacío para acumular los resultados
-stop_times_df = pd.DataFrame(columns=[
-    "trip_id", "arrival_time", "departure_time", "stop_id", "stop_sequence",
-    "timepoint", "shape_dist_traveled", "stop_headsign", "pickup_type",
-    "drop_off_type", "continuous_pickup", "continuous_drop_off"
-])
+    trip_times= pd.read_csv('trip_times.csv')
+    trips= pd.read_csv('trips.csv')
 
-# Iterar sobre las filas del DataFrame trip_times
-for index, row in trip_times.iterrows():
-    trip_id = row['trip_id']
-    start_time = row['trip_departure_time']
-    
-    # Utilizar datos de la tabla trips
-    route_id = trips.loc[trips["trip_id"] == trip_id, "route_id"].values[0]
-    service_id = trips.loc[trips["trip_id"] == trip_id, "service_id"].values[0]
-    shape_id = trips.loc[trips["trip_id"] == trip_id, "shape_id"].values[0]
-    
-    # Llamada a la función estimator
-    sequence_of_stops, estimated_arrival_times = estimator(route_id, service_id, shape_id, start_time, polynomials, stops_measurement)
-    
-    timepoint_values = [1 if i == 0 else 0 for i in range(len(sequence_of_stops))]
-    
-    # Construcción de stop_times_iteration para esta iteración
-    stop_times_iteration = pd.DataFrame({
-        "trip_id": [trip_id] * len(sequence_of_stops),
-        "arrival_time": list(estimated_arrival_times.values()),
-        "departure_time": list(estimated_arrival_times.values()),
-        "stop_id": sequence_of_stops,
-        "stop_sequence": range(len(sequence_of_stops)),
-        "timepoint": timepoint_values,
-        "shape_dist_traveled": [0] * len(sequence_of_stops),
-        "stop_headsign": [0] * len(sequence_of_stops),
-        "pickup_type": [0] * len(sequence_of_stops),
-        "drop_off_type": [0] * len(sequence_of_stops),
-        "continuous_pickup": [0] * len(sequence_of_stops),
-        "continuous_drop_off": [0] * len(sequence_of_stops),
-    })
-    
-    # Concatenar los resultados de esta iteración al DataFrame principal
-    stop_times_df = pd.concat([stop_times_df, stop_times_iteration], ignore_index=True)
-    stop_times_df.to_csv('stop_times', index=False)
+    # Crear un DataFrame vacío para acumular los resultados
+    stop_times_df = pd.DataFrame(columns=[
+        "trip_id", "arrival_time", "departure_time", "stop_id", "stop_sequence",
+        "timepoint", "shape_dist_traveled", "stop_headsign", "pickup_type",
+        "drop_off_type", "continuous_pickup", "continuous_drop_off"
+    ])
+
+    # Iterar sobre las filas del DataFrame trip_times
+    for index, row in trip_times.iterrows():
+        trip_id = row['trip_id']
+        start_time = row['trip_departure_time']
+
+        # Reemplazar stops_measurement por trips
+        route_id = trips.loc[trips["trip_id"] == trip_id, "route_id"].values[0]
+        service_id = trips.loc[trips["trip_id"] == trip_id, "service_id"].values[0]
+        shape_id = trips.loc[trips["trip_id"] == trip_id, "shape_id"].values[0]
+
+        # Llamada a la función estimator
+        sequence_of_stops, estimated_arrival_times = estimator(route_id, service_id, shape_id, start_time, polynomials)
+
+        timepoint_values = [1 if i == 0 else 0 for i in range(len(sequence_of_stops))]
+
+        # Construcción de stop_times_iteration para esta iteración
+        stop_times_iteration = pd.DataFrame({
+            "trip_id": [trip_id] * len(sequence_of_stops),
+            "arrival_time": list(estimated_arrival_times.values()),
+            "departure_time": list(estimated_arrival_times.values()),
+            "stop_id": sequence_of_stops,
+            "stop_sequence": range(len(sequence_of_stops)),
+            "timepoint": timepoint_values,
+            "shape_dist_traveled": [0] * len(sequence_of_stops),
+            "stop_headsign": [0] * len(sequence_of_stops),
+            "pickup_type": [0] * len(sequence_of_stops),
+            "drop_off_type": [0] * len(sequence_of_stops),
+            "continuous_pickup": [0] * len(sequence_of_stops),
+            "continuous_drop_off": [0] * len(sequence_of_stops),
+        })
+
+        # Concatenar los resultados de esta iteración al DataFrame principal
+        stop_times_df = pd.concat([stop_times_df, stop_times_iteration], ignore_index=True)
+    return stop_times_df
 ``````
 ## Notas
 
