@@ -26,6 +26,30 @@ def get_sequence_of_stops(route_id, shape_id, route_stops):
     sequence_of_stops = stops_sequence['stop_id'].unique()
     
     return sequence_of_stops
+    
+def calcular_polinomios(stops_measurement):
+    combinations = stops_measurement[['route_id', 'service_id', 'shape_id', 'stop_id']].drop_duplicates()
+
+    # Crear un diccionario para almacenar los polinomios
+    polynomials = {}
+
+    for i, combination in combinations.iterrows():
+        subset = stops_measurement[(stops_measurement['route_id'] == combination['route_id']) &
+                                   (stops_measurement['service_id'] == combination['service_id']) &
+                                   (stops_measurement['shape_id'] == combination['shape_id']) &
+                                   (stops_measurement['stop_id'] == combination['stop_id'])]
+
+        if not subset.empty:
+            x_values = pd.to_datetime(subset['trip_departure_time'], format='%H:%M:%S').dt.hour * 3600 + \
+                        pd.to_datetime(subset['trip_departure_time'], format='%H:%M:%S').dt.minute * 60 + \
+                        pd.to_datetime(subset['trip_departure_time'], format='%H:%M:%S').dt.second
+
+            degree = 4  # Grado del polinomio, puede ajustarse según las necesidades
+            coefficients = np.polyfit(x_values, subset['delay'], degree)
+            polynomial = np.poly1d(coefficients)
+            polynomials[tuple(combination)] = polynomial
+
+    return polynomials
 
 def estimator(route_id, service_id, shape_id, start_time, polynomials, stops_measurement):
     # Obtener la secuencia de paradas para la combinación dada
