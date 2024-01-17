@@ -2,6 +2,11 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+stops_measurement= pd.read_csv('stop_times_measurement.csv')
+route_stops= pd.read_csv('route_stops.csv')
+trip_times= pd.read_csv('trip_times.csv')
+trips= pd.read_csv('trips.csv')
+
 def calcular_delay(group):
     # Convierte la columna 'arrival_time' en objetos de tiempo
     group['arrival_time'] = pd.to_datetime(group['arrival_time'], format='%H:%M:%S')
@@ -15,6 +20,16 @@ def calcular_delay(group):
 
     return group
 
+# Aplicar la función a cada grupo (trip_id, date)
+stops_measurement = stops_measurement.groupby(['trip_id', 'date']).apply(calcular_delay)
+
+# Reiniciar el índice del DataFrame resultante
+stops_measurement.reset_index(drop=True, inplace=True)
+
+stops_measurement['arrival_time'] = stops_measurement['arrival_time'].dt.strftime('%H:%M:%S')
+
+# Crear columna 'trip_departure_time'
+stops_measurement['trip_departure_time'] = stops_measurement.groupby('trip_id')['arrival_time'].transform('first')
 
 def get_sequence_of_stops(route_id, shape_id, route_stops):
     stops_sequence = route_stops[
@@ -50,6 +65,8 @@ def calcular_polinomios(stops_measurement):
             polynomials[tuple(combination)] = polynomial
 
     return polynomials
+
+polynomials = calcular_polinomios(stops_measurement)
 
 def estimator(route_id, service_id, shape_id, start_time, polynomials, stops_measurement):
     # Obtener la secuencia de paradas para la combinación dada
