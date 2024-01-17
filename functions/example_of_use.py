@@ -7,7 +7,7 @@ route_stops= pd.read_csv('route_stops.csv')
 trip_times= pd.read_csv('trip_times.csv')
 trips= pd.read_csv('trips.csv')
 
-import functions.estimator as est
+import estimator as est
 
 resultado_stop_times = est.generate_stop_times_df()
 # Mostrar el contenido del DataFrame

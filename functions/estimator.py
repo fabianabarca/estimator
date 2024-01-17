@@ -68,7 +68,7 @@ def calcular_polinomios(stops_measurement):
 
 polynomials = calcular_polinomios(stops_measurement)
 
-def estimator(route_id, service_id, shape_id, start_time, polynomials, stops_measurement):
+def estimator(route_id, service_id, shape_id, start_time, polynomials):
     # Obtener la secuencia de paradas para la combinación dada
     sequence_of_stops = get_sequence_of_stops(route_id, shape_id, stops_measurement)
     
