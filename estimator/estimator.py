@@ -105,7 +105,7 @@ def estimator(route_id, service_id, shape_id, start_time, polynomials, route_sto
     return sequence_of_stops, estimated_arrival_times
 
 
-def generate_stop_times_df(stops_measurement, route_stops, trip_times, trips):
+def generate(stops_measurement, route_stops, trip_times, trips):
 
     # Crear un DataFrame vacío para acumular los resultados
     stop_times_df = pd.DataFrame(columns=[
