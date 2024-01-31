@@ -11,7 +11,7 @@ trip_times = pd.read_csv('trip_times.csv')
 trips = pd.read_csv('trips.csv')
 
 
-resultado_stop_times = est.generate_stop_times_df(
+resultado_stop_times = est.generate(
     stops_measurement, route_stops, trip_times, trips)
 # Mostrar el contenido del DataFrame
 print(resultado_stop_times.head(15))
