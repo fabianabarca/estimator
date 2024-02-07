@@ -7,6 +7,7 @@ An utility tool to estimate the arrival and departure times of the `stop_times` 
 These are the steps followed by the user of the system when creating a new trip, for which the stop times data must be generated:
 
 GTFS data provides:
+
 - Route
 - Direction
 - Calendar
@@ -14,6 +15,7 @@ GTFS data provides:
 - Stops
 
 System **user** selects, when entering a new trip:
+
 1. Route (e.g.: San Gabriel): `DataFrame` with the route's record.
 2. Direction (e.g.: 0, to San José): `int` (0 or 1).
 3. Calendar (e.g.: weekdays): `DataFrame` with the calendar's record.
@@ -22,6 +24,7 @@ System **user** selects, when entering a new trip:
 6. (*Optional*) Trip arrival time (for method A): Python's `DateTime` object.
 
 Auxiliary tables (not part of GTFS):
+
 - `route_stops`: provides the sequence of stops that a route follows in a given shape (trajectory), under the premise (our premise) that a route always follows the same sequence of stops for a given shape. Provided as a `DataFrame` with the records for the combination of `route_id` and `shape_id`.
 - `trip_times`: provides the `arrival_time`/`departure_time` of selected "anchor" stops with `timepoint = 1`. Tipically, each trip will only need the specification of the `departure_time` at the first stop. Provided as a `DataFrame`.
 - (*Optional*) `stop_times_measurements`: from where the table `polynomials` is created for method B.
@@ -46,12 +49,11 @@ These auxiliary tables are created when a new **route** is created.
 
 ### Intermediate variables
 
-- `distance_from_last_stop`: 
+- `distance_from_last_stop`:
 
 ### Outputs
 
 - A `stop_times` table with the estimation of departure/arrival times to each stop for a given trip.
-
 
 ## Premises
 
@@ -65,18 +67,19 @@ These auxiliary tables are created when a new **route** is created.
 
 - This package uses the GTFS revision of March 14, 2023.
 - The fields of the `stop_times.txt` table are:
-    - ***trip_id***
-    - ***arrival_time***
-    - departure_time
-    - ***stop_id***
-    - ***stop_sequence***
-    - stop_headsign
-    - pickup_type
-    - drop_off_type
-    - continuous_pickup
-    - continuous_drop_off
-    - ***shape_dist_traveled***
-    - ***timepoint***
+
+    1. ***trip_id***
+    2. ***arrival_time***
+    3. departure_time
+    4. ***stop_id***
+    5. ***stop_sequence***
+    6. stop_headsign
+    7. pickup_type
+    8. drop_off_type
+    9. continuous_pickup
+    10. continuous_drop_off
+    11. ***shape_dist_traveled***
+    12. ***timepoint***
 
 ### Data handling
 
@@ -84,7 +87,6 @@ These auxiliary tables are created when a new **route** is created.
 - Geospatial data (e.g. `shapes.txt`) will be handled with [GeoPandas](https://geopandas.org/)
 
 Note: geospatial data > geometries > (point, line, polygon, multipolygon)
-
 
 ```python
 import trips2stoptimes as t2s
@@ -109,7 +111,7 @@ stops = t2s.get_stops_from_db(asdfasdj)
 estimator(
     route=route_id,
     shape=shape_id,
-    route_stops=tabla_paradas_rutas, # posiblemente hay que buscarlo directo en la DB	
+    route_stops=tabla_paradas_rutas, # posiblemente hay que buscarlo directo en la DB
     stops=tabla_paradas, # posiblemente hay que buscarlo directo en la DB
     method={A, B},
     initial_stop=stop_id, 
@@ -119,7 +121,8 @@ estimator(
 )
 ```
 
-returns: 
+returns:
+
 - stop_id
 - stop_sequence
 - arrival_time `TimeDeltaObject` from time_initial_stop
@@ -150,9 +153,6 @@ Ejemplo: si f(t) = 3t^7 + 2.375t^6 - ... + 35 (unidad: segundos) para arrival_ti
 
 f(12:35) = 3(12:35)^7 + 2.375(12:35)^6 - ... + 35 = 264 segundos
 
-
-
 Crear función f(t) para cada stop_id, para arrival_time y (por separado) para departure_time que describe el deltaT entre la parada anterior y la parada actual
 
 Recordar que Python tiene formas de encontrar una curva polinomial de mejor ajuste.
-
