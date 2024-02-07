@@ -2,6 +2,36 @@
 
 An utility tool to estimate the arrival and departure times of the `stop_times` table in GTFS, based on several algorithms.
 
+## Methods for creating a trip
+
+These are the steps followed by the user of the system when creating a new trip, for which the stop times data must be generated:
+
+GTFS data provides:
+- Route
+- Direction
+- Calendar
+- Shape
+- Stops
+
+System **user** selects, when entering a new trip:
+1. Route (e.g.: San Gabriel): `DataFrame` with the route's record.
+2. Direction (e.g.: 0, to San José): `int` (0 or 1).
+3. Calendar (e.g.: weekdays): `DataFrame` with the calendar's record.
+4. (*Optional*) Shape (e.g.: `hacia_sanjose`, this shape will tipically be the same): `GeoDataFrame` with the shape's record.
+5. Trip departure time: Python's `DateTime` object.
+6. (*Optional*) Trip arrival time (for method A): Python's `DateTime` object.
+
+Auxiliary tables (not part of GTFS):
+- `route_stops`: provides the sequence of stops that a route follows in a given shape (trajectory), under the premise (our premise) that a route always follows the same sequence of stops for a given shape. Provided as a `DataFrame` with the records for the combination of `route_id` and `shape_id`.
+- `trip_times`: provides the `arrival_time`/`departure_time` of selected "anchor" stops with `timepoint = 1`. Tipically, each trip will only need the specification of the `departure_time` at the first stop. Provided as a `DataFrame`.
+- (*Optional*) `stop_times_measurements`: from where the table `polynomials` is created for method B.
+
+These auxiliary tables are created when a new **route** is created.
+
+### Method A: without historical data
+
+### Method B: with historical data
+
 ## Inputs and outputs
 
 ### Inputs
