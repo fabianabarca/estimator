@@ -15,12 +15,11 @@ GTFS data provides:
 - Stops
 
 System **user** selects, when entering a new trip:
-
-1. Route (e.g.: San Gabriel): `DataFrame` with the route's record.
+1. Route (e.g.: San Gabriel): `route_id`.
 2. Direction (e.g.: 0, to San José): `int` (0 or 1).
-3. Calendar (e.g.: weekdays): `DataFrame` with the calendar's record.
-4. (*Optional*) Shape (e.g.: `hacia_sanjose`, this shape will tipically be the same): `GeoDataFrame` with the shape's record.
-5. Trip departure time: Python's `DateTime` object.
+3. Calendar (e.g.: weekdays): `string` with the calendar's `service_id`.
+4. Shape (e.g.: `hacia_sanjose`, this shape will tipically be the same for a given route): `shape_id`.
+5. Trip times: `DataFrame` with the `trip_times` fields, i.e., `trip_id`, `stop_id`, `trip_time`, selected from a list of stops for a given route and shape, that is, from the `route_stops` table.
 6. (*Optional*) Trip arrival time (for method A): Python's `DateTime` object.
 
 Auxiliary tables (not part of GTFS):
@@ -30,6 +29,67 @@ Auxiliary tables (not part of GTFS):
 - (*Optional*) `stop_times_measurements`: from where the table `polynomials` is created for method B.
 
 These auxiliary tables are created when a new **route** is created.
+
+#### API sketch
+
+```python
+# views.py
+
+import databus_stoptimes as st
+import pandas as pd
+from .models import Route, GeoShape, RouteStops, Trip, StopTimes
+
+# Get here the data from the DB
+def create_trip(request):
+    method = request.POST["method"]
+    route_id = request.POST["request_id"]
+    route = Route.objects.filter(route_id=route_id)
+    route = pd.DataFrame(route) # tal vez
+    shape_id = request.POST["shape_id"]
+    shape = GeoShape.objects.filter(shape_id=shape_id)
+    shape = pd.DataFrame(shape) # tal vez
+    trip_times = request.POST["trip_times"]
+    trip_times = pd.DataFrame(trip_times) # seguramente así no
+    route_stops = RouteStops.objects.filter(route_id=route_id, shape_id=shape_id)
+    route_stops = pd.DataFrame(route_stops)
+
+    stop_times = st.estimate(
+        method=method,
+        route=route,
+        shape=shape,
+        trip_times=trip_times,
+        route_stops=route_stops
+    )
+
+    service_id = request.POST["service_id"] 
+    trip = Trip(
+        trip_id=34563462,
+        service_id=service_id,
+        (...)
+    )
+    trip.save()
+    StopTimes.objects.create(stop_times) # algo así
+```
+
+where:
+
+- `stop_times` is a `DataFrame` built for a new trip with the following columns:
+    - `trip_id`
+    - `arrival_time`
+    - `departure_time`
+    - `stop_id`
+    - `stop_sequence`
+    - `timepoint`
+    - `shape_dist_traveled`
+    - (Other fields will be ignored, for now.)
+- `method` chooses between our two algorithms: A and B (when available)
+- `route` is a `DataFrame` with the route's record from `route_id`
+- `shape` is a `GeoDataFrame` with the shape's record in the `GeoShape` model with the `shape_id`
+- `trip_times` is a `DataFrame` with the following columns:
+    - `trip_id`
+    - `stop_id`
+    - `trip_time`
+- `route_stops` is a `DataFrame` containing the records of the `route_stops` database table for the combination of `route_id` and `shape_id`
 
 ### Method A: without historical data
 
