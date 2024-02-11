@@ -37,37 +37,50 @@ These auxiliary tables are created when a new **route** is created.
 
 import databus_stoptimes as st
 import pandas as pd
-from .models import Route, GeoShape, RouteStops, Trip, StopTimes
+import geopandas as gpd
+from .models import Route, GeoShape, RouteStop, Trip, StopTime, Stop
 
 # Get here the data from the DB
 def create_trip(request):
+    """Creates a record on the trips table and estimates the stop times for the stop_times table
+
+    """
+    
     method = request.POST["method"]
     route_id = request.POST["request_id"]
     route = Route.objects.filter(route_id=route_id)
     route = pd.DataFrame(route) # tal vez
+    direction_id = request.POST["direction_id"]
+    service_id = request.POST["service_id"]
     shape_id = request.POST["shape_id"]
     shape = GeoShape.objects.filter(shape_id=shape_id)
-    shape = pd.DataFrame(shape) # tal vez
-    trip_times = request.POST["trip_times"]
-    trip_times = pd.DataFrame(trip_times) # seguramente así no
+    shape = gpd.GeoDataFrame(shape) # tal vez
     route_stops = RouteStops.objects.filter(route_id=route_id, shape_id=shape_id)
     route_stops = pd.DataFrame(route_stops)
+    stops = [Stop.objects.get(stop_id=i) for i in route_stops["stop_id"]]
+    stops = pd.DataFrame(stops)
+    trip_times = request.POST["trip_times"]
+    trip_times = pd.DataFrame(trip_times) # seguramente así no
+    trip_id = f"{shape_id}{service_id}{trip_times[0]}"
+
+    trip = Trip(
+        route_id=route_id,
+        service_id=service_id,
+        trip_id=trip_id,
+        direction_id=direction_id,
+        shape_id=shape_id,
+    )
+    trip.save()
 
     stop_times = st.estimate(
         method=method,
+        trip_id=trip_id,
         route=route,
         shape=shape,
+        route_stops=route_stops,
+        stops=stops,
         trip_times=trip_times,
-        route_stops=route_stops
     )
-
-    service_id = request.POST["service_id"] 
-    trip = Trip(
-        trip_id=34563462,
-        service_id=service_id,
-        (...)
-    )
-    trip.save()
     StopTimes.objects.create(stop_times) # algo así
 ```
 

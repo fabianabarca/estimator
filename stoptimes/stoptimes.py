@@ -2,6 +2,39 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+def estimate(method, trip_id, route, shape, route_stops, stops, trip_times):
+    """Validate incoming data and call the appropriate estimation method.
+
+    Parameters
+    ----------
+    method : str
+        The estimation method to use. Either "A" or "B".
+    trip_id : str
+        The trip_id for which to estimate stop times.
+    route : DataFrame
+        A DataFrame containing the route data.
+    shape : GeoDataFrame
+        A GeoDataFrame containing the shape data.
+    route_stops : DataFrame
+        A DataFrame containing the sequence of stops for the given combination of route and shape.
+    stops : DataFrame
+        A DataFrame containing the stop data for the list of stops.
+    trip_times : DataFrame
+
+    Returns
+    -------
+    DataFrame
+        A DataFrame containing the estimated stop times for the given trip_id.
+    """
+    # Data validation here
+
+    if method == "A":
+        return estimate_method_A(trip_id, route, shape, route_stops, stops, trip_times)
+    elif method == "B":
+        return estimate_method_B(trip_id, route, shape, route_stops, stops, trip_times)
+    else:
+        raise ValueError("Invalid method. Use 'A' or 'B'.")
+
 
 def get_delay(group):
     # Convierte la columna 'arrival_time' en objetos de tiempo
