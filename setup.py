@@ -13,7 +13,7 @@ setup(
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     long_description_content_type="text/markdown",
-    author="Fabián Abarca, Anthony Monestel, Ulises Fonseca and Jesús Mena",
+    author="Fabián Abarca, Anthony Monestel, Ulises Fonseca, Jesús Mena, Joselyn Castillo, Juan Sebastián Pereira",
     author_email="fabian.abarca@ucr.ac.cr",
     url="https://databus-stoptimes.readthedocs.io/",
     license="MIT",

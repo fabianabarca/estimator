@@ -1,3 +1,3 @@
 from .stoptimes import (
-    generate,
+    estimate_stop_times,
 )

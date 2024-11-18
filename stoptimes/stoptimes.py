@@ -1,8 +1,13 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import shapely
+import geopandas as gpd
 
-def estimate(method, trip_id, route, shape, route_stops, stops, trip_times):
+
+def estimate_stop_times(
+    method, trip_id, route_id, shape_id, service_id, trip_times
+) -> pd.DataFrame:
     """Validate incoming data and call the appropriate estimation method.
 
     Parameters
@@ -29,11 +34,142 @@ def estimate(method, trip_id, route, shape, route_stops, stops, trip_times):
     # Data validation here
 
     if method == "A":
-        return estimate_method_A(trip_id, route, shape, route_stops, stops, trip_times)
+        return estimate_method_A(
+            trip_id, trip_id, route_id, shape_id, service_id, trip_times
+        )
     elif method == "B":
-        return estimate_method_B(trip_id, route, shape, route_stops, stops, trip_times)
+        return estimate_method_B(
+            trip_id, trip_id, route_id, shape_id, service_id, trip_times
+        )
     else:
         raise ValueError("Invalid method. Use 'A' or 'B'.")
+
+
+def estimate_method_A(trip_id, route_id, shape, route_stops, stops, trip_times, trip_duration):
+    """Estimate the stop times for a GTFS feed in the Databús platform.
+
+    Parameters
+    ----------
+    trip_id : str
+        The trip_id for which to estimate stop times.
+    route_id : DataFrame
+        The route_id for which to estimate stop times.
+    shape : GeoDataFrame
+        A GeoDataFrame containing the linestring shape data.
+    route_stops : DataFrame
+        A DataFrame containing the sequence of stops for the given combination of route and shape.
+    stops : DataFrame
+        A DataFrame containing the stop data for the list of stops.
+    trip_times : DataFrame
+        A DataFrame containing the trip times for the given trip_id.
+    trip_duration : int
+
+    Returns
+    -------
+    DataFrame
+        A DataFrame containing the estimated stop times for the given trip_id.
+    """
+    # Data validation here
+
+    # Perform the estimation
+
+    # Convert the shape data in shape["geometry"] to a Shapely LineString
+    shape_line = shape["geometry"].iloc[0]
+
+    stop_times = pd.DataFrame(
+        columns=[
+            "trip_id",
+            "arrival_time",
+            "departure_time",
+            "stop_id",
+            "stop_sequence",
+            "timepoint",
+            "shape_dist_traveled",
+        ]
+    )
+
+    return stop_times
+
+
+def estimate_method_B(
+    stops_measurement, route_stops, trip_times, trips
+) -> pd.DataFrame:
+    """Generate the stop times for a GTFS feed in the Databús platform.
+
+    Parameters
+    ----------
+
+    route_id : str
+        The route_id for which to estimate stop times.
+    service_id : str
+        The service_id for which to estimate stop times.
+
+    """
+
+    # Crear un DataFrame vacío para acumular los resultados
+    stop_times_df = pd.DataFrame(
+        columns=[
+            "trip_id",
+            "arrival_time",
+            "departure_time",
+            "stop_id",
+            "stop_sequence",
+            "timepoint",
+            "shape_dist_traveled",
+            "stop_headsign",
+            "pickup_type",
+            "drop_off_type",
+            "continuous_pickup",
+            "continuous_drop_off",
+        ]
+    )
+
+    # Iterar sobre las filas del DataFrame trip_times
+    for index, row in trip_times.iterrows():
+        trip_id = row["trip_id"]
+        start_time = row["trip_time"]
+
+        # Reemplazar stops_measurement por trips
+        route_id = trips.loc[trips["trip_id"] == trip_id, "route_id"].values[0]
+        service_id = trips.loc[trips["trip_id"] == trip_id, "service_id"].values[0]
+        shape_id = trips.loc[trips["trip_id"] == trip_id, "shape_id"].values[0]
+
+        polynomials = get_polynomials(stops_measurement)
+
+        # Llamada a la función estimator
+        sequence_of_stops, estimated_arrival_times = estimate(
+            route_id, service_id, shape_id, start_time, polynomials, route_stops
+        )
+
+        timepoint_values = [1 if i == 0 else 0 for i in range(len(sequence_of_stops))]
+
+        # Construcción de stop_times_iteration para esta iteración
+        stop_times_iteration = pd.DataFrame(
+            {
+                "trip_id": [trip_id] * len(sequence_of_stops),
+                "arrival_time": list(estimated_arrival_times.values()),
+                "departure_time": list(estimated_arrival_times.values()),
+                "stop_id": sequence_of_stops,
+                "stop_sequence": range(len(sequence_of_stops)),
+                "timepoint": timepoint_values,
+                "shape_dist_traveled": [0] * len(sequence_of_stops),
+                "stop_headsign": [0] * len(sequence_of_stops),
+                "pickup_type": [0] * len(sequence_of_stops),
+                "drop_off_type": [0] * len(sequence_of_stops),
+                "continuous_pickup": [0] * len(sequence_of_stops),
+                "continuous_drop_off": [0] * len(sequence_of_stops),
+            }
+        )
+
+        # Concatenar los resultados de esta iteración al DataFrame principal
+        stop_times_df = pd.concat(
+            [stop_times_df, stop_times_iteration], ignore_index=True
+        )
+    return stop_times_df
+
+# -----------
+# LEGACY CODE
+# -----------
 
 
 def get_delay(group):
@@ -64,9 +200,7 @@ def get_sequence_of_stops(route_id, shape_id, route_stops):
 
 def get_polynomials(stops_measurement):
     # Aplicar la función a cada grupo (trip_id, date)
-    stops_measurement = stops_measurement.groupby(["trip_id", "date"]).apply(
-        get_delay
-    )
+    stops_measurement = stops_measurement.groupby(["trip_id", "date"]).apply(get_delay)
 
     # Reiniciar el índice del DataFrame resultante
     stops_measurement.reset_index(drop=True, inplace=True)
@@ -116,6 +250,9 @@ def get_polynomials(stops_measurement):
     return polynomials
 
 
+# El problema de estimación de modelos de tiempos de llegada (polinomios) se resuelve en otra parte, posiblemente en Django como una tarea periódica, aunque tal vez este paquete ofrezca también una función para hacerlo
+
+
 def estimate(route_id, service_id, shape_id, start_time, polynomials, route_stops):
     # Obtener la secuencia de paradas para la combinación dada
     sequence_of_stops = get_sequence_of_stops(route_id, shape_id, route_stops)
@@ -143,66 +280,3 @@ def estimate(route_id, service_id, shape_id, start_time, polynomials, route_stop
             estimated_arrival_times[stop_id] = "No se puede estimar"
 
     return sequence_of_stops, estimated_arrival_times
-
-
-def generate(stops_measurement, route_stops, trip_times, trips):
-    # Crear un DataFrame vacío para acumular los resultados
-    stop_times_df = pd.DataFrame(
-        columns=[
-            "trip_id",
-            "arrival_time",
-            "departure_time",
-            "stop_id",
-            "stop_sequence",
-            "timepoint",
-            "shape_dist_traveled",
-            "stop_headsign",
-            "pickup_type",
-            "drop_off_type",
-            "continuous_pickup",
-            "continuous_drop_off",
-        ]
-    )
-
-    # Iterar sobre las filas del DataFrame trip_times
-    for index, row in trip_times.iterrows():
-        trip_id = row["trip_id"]
-        start_time = row["trip_departure_time"]
-
-        # Reemplazar stops_measurement por trips
-        route_id = trips.loc[trips["trip_id"] == trip_id, "route_id"].values[0]
-        service_id = trips.loc[trips["trip_id"] == trip_id, "service_id"].values[0]
-        shape_id = trips.loc[trips["trip_id"] == trip_id, "shape_id"].values[0]
-
-        polynomials = get_polynomials(stops_measurement)
-
-        # Llamada a la función estimator
-        sequence_of_stops, estimated_arrival_times = estimate(
-            route_id, service_id, shape_id, start_time, polynomials, route_stops
-        )
-
-        timepoint_values = [1 if i == 0 else 0 for i in range(len(sequence_of_stops))]
-
-        # Construcción de stop_times_iteration para esta iteración
-        stop_times_iteration = pd.DataFrame(
-            {
-                "trip_id": [trip_id] * len(sequence_of_stops),
-                "arrival_time": list(estimated_arrival_times.values()),
-                "departure_time": list(estimated_arrival_times.values()),
-                "stop_id": sequence_of_stops,
-                "stop_sequence": range(len(sequence_of_stops)),
-                "timepoint": timepoint_values,
-                "shape_dist_traveled": [0] * len(sequence_of_stops),
-                "stop_headsign": [0] * len(sequence_of_stops),
-                "pickup_type": [0] * len(sequence_of_stops),
-                "drop_off_type": [0] * len(sequence_of_stops),
-                "continuous_pickup": [0] * len(sequence_of_stops),
-                "continuous_drop_off": [0] * len(sequence_of_stops),
-            }
-        )
-
-        # Concatenar los resultados de esta iteración al DataFrame principal
-        stop_times_df = pd.concat(
-            [stop_times_df, stop_times_iteration], ignore_index=True
-        )
-    return stop_times_df
