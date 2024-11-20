@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import geopandas as gpd
+from shapely.geometry import Point, LineString
 
 def estimate(method, trip_id, route, shape, route_stops, stops, trip_times):
     """Validate incoming data and call the appropriate estimation method.
@@ -144,6 +146,55 @@ def estimate(route_id, service_id, shape_id, start_time, polynomials, route_stop
 
     return sequence_of_stops, estimated_arrival_times
 
+
+def estimate_method_A(trip_id, route, shape, route_stops, stops, trips_times):
+    """
+    Estima los tiempos de parada basados en la distancia y otros parámetros para un trip_id dado.
+
+    Parameters:
+    trip_id (str): El trip_id para el cual se estiman los tiempos de parada.
+    route (DataFrame): Datos del recorrido.
+    shape (GeoDataFrame): Datos geográficos de la forma (shape).
+    route_stops (DataFrame): Secuencia de paradas para la combinación dada de ruta y forma.
+    stops (DataFrame): Datos de las paradas.
+    trip_times (DataFrame): Datos de tiempos de viaje para el trip_id dado.
+
+    Returns:
+    DataFrame: DataFrame con los tiempos estimados de parada para el trip_id dado.
+    """
+
+    # Validación de datos iniciales
+    if trip_id not in trip_times['trip_id'].values:
+        raise ValueError("El trip_id proporcionado no existe en los tiempos de viaje.")
+    
+    # Filtrar datos relevantes para el trip_id
+    selected_route = route[route['trip_id'] == trip_id]
+    selected_shape = shape[shape['shape_id'] == selected_route['shape_id'].iloc[0]]
+    selected_stops = route_stops[route_stops['trip_id'] == trip_id]
+
+    # Calcular distancias entre las paradas usando la forma geográfica
+    distances = []
+    for i in range(len(selected_stops) - 1):
+        stop_1 = stops[stops['stop_id'] == selected_stops.iloc[i]['stop_id']].iloc[0]
+        stop_2 = stops[stops['stop_id'] == selected_stops.iloc[i + 1]['stop_id']].iloc[0]
+        point_1 = Point(stop_1['longitude'], stop_1['latitude'])
+        point_2 = Point(stop_2['longitude'], stop_2['latitude'])
+
+        # Usar distancia geodésica o euclidiana según sea necesario
+        line = LineString([point_1, point_2])
+        distances.append(line.length)
+
+    # Calcular tiempos estimados usando distancias y velocidad promedio
+    average_speed_kmph = 40  # Suponiendo una velocidad promedio
+    estimated_times = [(dist / average_speed_kmph) * 60 for dist in distances]  # Tiempo en minutos
+
+    # Crear un DataFrame con los tiempos estimados
+    result = pd.DataFrame({
+        'stop_id': selected_stops['stop_id'].iloc[:-1],  # Todas las paradas excepto la última
+        'estimated_time_minutes': estimated_times
+    })
+
+    return result
 
 def generate(stops_measurement, route_stops, trip_times, trips):
     # Crear un DataFrame vacío para acumular los resultados
