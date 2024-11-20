@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import shapely
+from shapely.geometry import Point, LineString
 import geopandas as gpd
 
 
@@ -70,10 +70,39 @@ def estimate_method_A(trip_id, route_id, shape, route_stops, stops, trip_times, 
         A DataFrame containing the estimated stop times for the given trip_id.
     """
     # Data validation here
+    if trip_id not in trip_times['trip_id'].values:
+        raise ValueError("El trip_id proporcionado no existe en los tiempos de viaje.")
+    
+    # Filtrar datos relevantes para el trip_id
+    selected_route = route[route['trip_id'] == trip_id]
+    selected_shape = shape[shape['shape_id'] == selected_route['shape_id'].iloc[0]]
+    selected_stops = route_stops[route_stops['trip_id'] == trip_id]
 
-    # Perform the estimation
+    # Calcular distancias entre las paradas usando la forma geográfica
+    distances = []
+    for i in range(len(selected_stops) - 1):
+        stop_1 = stops[stops['stop_id'] == selected_stops.iloc[i]['stop_id']].iloc[0]
+        stop_2 = stops[stops['stop_id'] == selected_stops.iloc[i + 1]['stop_id']].iloc[0]
+        point_1 = Point(stop_1['longitude'], stop_1['latitude'])
+        point_2 = Point(stop_2['longitude'], stop_2['latitude'])
 
-    # Convert the shape data in shape["geometry"] to a Shapely LineString
+        # Usar distancia geodésica o euclidiana según sea necesario
+        line = LineString([point_1, point_2])
+        distances.append(line.length)
+
+    # Calcular tiempos estimados usando distancias y velocidad promedio
+    average_speed_kmph = 40  # Suponiendo una velocidad promedio
+    estimated_times = [(dist / average_speed_kmph) * 60 for dist in distances]  # Tiempo en minutos
+
+    # Crear un DataFrame con los tiempos estimados
+    result = pd.DataFrame({
+        'stop_id': selected_stops['stop_id'].iloc[:-1],  # Todas las paradas excepto la última
+        'estimated_time_minutes': estimated_times
+    })
+
+    return result
+
+"""     # Convert the shape data in shape["geometry"] to a Shapely LineString
     shape_line = shape["geometry"].iloc[0]
 
     stop_times = pd.DataFrame(
@@ -88,7 +117,7 @@ def estimate_method_A(trip_id, route_id, shape, route_stops, stops, trip_times, 
         ]
     )
 
-    return stop_times
+    return stop_times """
 
 
 def estimate_method_B(
