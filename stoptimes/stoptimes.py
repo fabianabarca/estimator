@@ -6,7 +6,7 @@ import geopandas as gpd
 
 
 def estimate_stop_times(
-    method, trip_id, route_id, shape_id, service_id, trip_times
+    method, trip_id, route, shape, route_stops, trip_times, trip_durations, stops
 ) -> pd.DataFrame:
     """Validate incoming data and call the appropriate estimation method.
 
@@ -19,72 +19,57 @@ def estimate_stop_times(
     route : DataFrame
         A DataFrame containing the route data.
     shape : GeoDataFrame
-        A GeoDataFrame containing the shape data.
+        A GeoDataFrame containing the data of the shape of route.
     route_stops : DataFrame
         A DataFrame containing the sequence of stops for the given combination of route and shape.
-    stops : DataFrame
-        A DataFrame containing the stop data for the list of stops.
     trip_times : DataFrame
+        The stop_id and departure time (time object) for the given trip_id, shape_id and service_id for a given time range (start_time, end_time) for trip_time.
+    trip_durations : DataFrame, optional
+        The trip_id and trip duration (timedelta object) for the given trip_id, shape_id and service_id for a given time range (start_time, end_time) for trip_time. Mandatory for method A.
+    stops : DataFrame, optional
+        A DataFrame containing the stop data for the list of stops. Mandatory for method A.
 
     Returns
     -------
     DataFrame
-        A DataFrame containing the estimated stop times for the given trip_id.
+        A DataFrame containing the estimated stop times for the given trip_id, with the fields:
+        trip_id, arrival_time, departure_time, stop_id, stop_sequence, timepoint, shape_dist_traveled
     """
     # Data validation here
 
     if method == "A":
-        return estimate_method_A(
-            trip_id, trip_id, route_id, shape_id, service_id, trip_times
+        return _estimate_method_A(
+            trip_id, route, shape, route_stops, trip_times, trip_durations, stops
         )
     elif method == "B":
-        return estimate_method_B(
-            trip_id, trip_id, route_id, shape_id, service_id, trip_times
-        )
+        return _estimate_method_B(trip_id, route, shape, route_stops, trip_times)
     else:
         raise ValueError("Invalid method. Use 'A' or 'B'.")
 
 
-def estimate_method_A(trip_id, route_id, shape, route_stops, stops, trip_times, trip_duration):
-    """Estimate the stop times for a GTFS feed in the Databús platform.
+def _estimate_method_A(
+    trip_id, route, shape, route_stops, trip_times, trip_durations, stops
+):
+    """Implementation of estimation method A."""
 
-    Parameters
-    ----------
-    trip_id : str
-        The trip_id for which to estimate stop times.
-    route_id : DataFrame
-        The route_id for which to estimate stop times.
-    shape : GeoDataFrame
-        A GeoDataFrame containing the linestring shape data.
-    route_stops : DataFrame
-        A DataFrame containing the sequence of stops for the given combination of route and shape.
-    stops : DataFrame
-        A DataFrame containing the stop data for the list of stops.
-    trip_times : DataFrame
-        A DataFrame containing the trip times for the given trip_id.
-    trip_duration : int
-
-    Returns
-    -------
-    DataFrame
-        A DataFrame containing the estimated stop times for the given trip_id.
-    """
     # Data validation here
-    if trip_id not in trip_times['trip_id'].values:
+    if trip_id not in trip_times["trip_id"].values:
         raise ValueError("El trip_id proporcionado no existe en los tiempos de viaje.")
-    
+
     # Filtrar datos relevantes para el trip_id
-    selected_route = route[route['trip_id'] == trip_id]
-    selected_shape = shape[shape['shape_id'] == selected_route['shape_id'].iloc[0]]
-    selected_stops = route_stops[route_stops['trip_id'] == trip_id]
+    selected_route = route[route["trip_id"] == trip_id]
+    selected_shape = shape[shape["shape_id"] == selected_route["shape_id"].iloc[0]]
+    selected_stops = route_stops[route_stops["trip_id"] == trip_id]
 
     # Calcular distancias entre las paradas usando la forma geográfica
     distances = []
     for i in range(len(selected_stops) - 1):
-        stop_1 = stops[stops['stop_id'] == selected_stops.iloc[i]['stop_id']].iloc[0]
-        stop_2 = stops[stops['stop_id'] == selected_stops.iloc[i + 1]['stop_id']].iloc[0]
-        point_1 = Point(stop_1['longitude'], stop_1['latitude'])
-        point_2 = Point(stop_2['longitude'], stop_2['latitude'])
+        stop_1 = stops[stops["stop_id"] == selected_stops.iloc[i]["stop_id"]].iloc[0]
+        stop_2 = stops[stops["stop_id"] == selected_stops.iloc[i + 1]["stop_id"]].iloc[
+            0
+        ]
+        point_1 = Point(stop_1["longitude"], stop_1["latitude"])
+        point_2 = Point(stop_2["longitude"], stop_2["latitude"])
 
         # Usar distancia geodésica o euclidiana según sea necesario
         line = LineString([point_1, point_2])
@@ -92,17 +77,24 @@ def estimate_method_A(trip_id, route_id, shape, route_stops, stops, trip_times, 
 
     # Calcular tiempos estimados usando distancias y velocidad promedio
     average_speed_kmph = 40  # Suponiendo una velocidad promedio
-    estimated_times = [(dist / average_speed_kmph) * 60 for dist in distances]  # Tiempo en minutos
+    estimated_times = [
+        (dist / average_speed_kmph) * 60 for dist in distances
+    ]  # Tiempo en minutos
 
     # Crear un DataFrame con los tiempos estimados
-    result = pd.DataFrame({
-        'stop_id': selected_stops['stop_id'].iloc[:-1],  # Todas las paradas excepto la última
-        'estimated_time_minutes': estimated_times
-    })
+    result = pd.DataFrame(
+        {
+            "stop_id": selected_stops["stop_id"].iloc[
+                :-1
+            ],  # Todas las paradas excepto la última
+            "estimated_time_minutes": estimated_times,
+        }
+    )
 
     return result
 
-"""     # Convert the shape data in shape["geometry"] to a Shapely LineString
+    """     
+    # Convert the shape data in shape["geometry"] to a Shapely LineString
     shape_line = shape["geometry"].iloc[0]
 
     stop_times = pd.DataFrame(
@@ -117,10 +109,11 @@ def estimate_method_A(trip_id, route_id, shape, route_stops, stops, trip_times, 
         ]
     )
 
-    return stop_times """
+    return stop_times 
+    """
 
 
-def estimate_method_B(
+def _estimate_method_B(
     stops_measurement, route_stops, trip_times, trips
 ) -> pd.DataFrame:
     """Generate the stop times for a GTFS feed in the Databús platform.
@@ -195,6 +188,7 @@ def estimate_method_B(
             [stop_times_df, stop_times_iteration], ignore_index=True
         )
     return stop_times_df
+
 
 # -----------
 # LEGACY CODE
