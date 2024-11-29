@@ -50,43 +50,52 @@ def estimate_stop_times(
 def _estimate_method_A(
     trip_id, route, shape, route_stops, trip_times, trip_durations, stops
 ):
-    """Implementation of estimation method A."""
-
-    # Data validation here
+    # Validación de datos
     if trip_id not in trip_times["trip_id"].values:
         raise ValueError("El trip_id proporcionado no existe en los tiempos de viaje.")
 
     # Filtrar datos relevantes para el trip_id
     selected_route = route[route["trip_id"] == trip_id]
-    selected_shape = shape[shape["shape_id"] == selected_route["shape_id"].iloc[0]]
+    if selected_route.empty:
+        raise ValueError(f"No se encontraron datos de ruta para el trip_id {trip_id}.")
+    
     selected_stops = route_stops[route_stops["trip_id"] == trip_id]
+
+    if selected_stops.empty:
+        raise ValueError(f"No se encontraron paradas para el trip_id {trip_id}.")
 
     # Calcular distancias entre las paradas usando la forma geográfica
     distances = []
     for i in range(len(selected_stops) - 1):
         stop_1 = stops[stops["stop_id"] == selected_stops.iloc[i]["stop_id"]].iloc[0]
-        stop_2 = stops[stops["stop_id"] == selected_stops.iloc[i + 1]["stop_id"]].iloc[
-            0
-        ]
+        stop_2 = stops[stops["stop_id"] == selected_stops.iloc[i + 1]["stop_id"]].iloc[0]
+
+        # Crear puntos geográficos para las paradas
         point_1 = Point(stop_1["longitude"], stop_1["latitude"])
         point_2 = Point(stop_2["longitude"], stop_2["latitude"])
 
-        # Usar distancia geodésica o euclidiana según sea necesario
+        # Calcular distancia entre las paradas (geodésica o euclidiana según se prefiera)
         line = LineString([point_1, point_2])
         distances.append(line.length)
 
-    # Calcular tiempos estimados usando distancias y velocidad promedio
-    average_speed_kmph = 40  # Suponiendo una velocidad promedio
-    estimated_times = [
-        (dist / average_speed_kmph) * 60 for dist in distances
-    ]  # Tiempo en minutos
+    # Calcular duración total del viaje desde trip_durations
+    trip_duration = trip_durations.loc[
+        trip_durations["trip_id"] == trip_id, "trip_duration"
+    ].values[0]
 
-    # Crear un DataFrame con los tiempos estimados
+    # Calcular tiempos estimados distribuyendo la duración proporcionalmente
+    total_distance = sum(distances)
+    estimated_times = [
+        (dist / total_distance) * trip_duration.total_seconds() / 60 for dist in distances
+    ]
+
+    # Crear DataFrame con los tiempos estimados
+    stop_sequence = selected_stops["stop_sequence"].iloc[:-1]
     result = pd.DataFrame(
         {
-            "stop_id": selected_stops["stop_id"].iloc[
-                :-1
-            ],  # Todas las paradas excepto la última
+            "trip_id": trip_id,
+            "stop_id": selected_stops["stop_id"].iloc[:-1],  #menos última parada
+            "stop_sequence": stop_sequence,
             "estimated_time_minutes": estimated_times,
         }
     )
